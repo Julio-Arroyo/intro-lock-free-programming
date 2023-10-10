@@ -2,6 +2,7 @@
 
 int main() {
     int counter = 0;
+    // PetersonNaive mutex
     PetersonGood mutex;
 
     auto f = [&mutex, &counter]() {
