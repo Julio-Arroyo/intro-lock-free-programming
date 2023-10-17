@@ -34,8 +34,52 @@ int main() {
 \end{verbatim}
 \captionof{Code}{If PetersonNaive provided mutual exclusion as expected, then the output should be 1000000. However, I got 988,495 (exact output may vary from run to run).}
 \makebox[\linewidth]{\rule{17cm}{0.4pt}}
+}
 
 \section{Test-and-Set operation}
+One of the most basic \textit{read-modify-write} (RMW) operations is test-and-set. It was the principal synchronization instruction used in the earlier multiprocessor architectures.
+
+\begin{algorithm}[H]
+    \SetKwInOut{Input}{input}
+    \SetKwInOut{Output}{output}
+    \Input{Binary value $x$}
+    \Output{Binary value}
+    \BlankLine
+    $t \leftarrow x$;
+    
+    $x \leftarrow $ TRUE;
+    
+    \Return $t$;
+    \caption{Test-and-Set operation. All of the following instructions occur in a single atomic step.}
+    \label{alg:testAndSet}
+\end{algorithm}
+
+\subsubsection{Implementing a spin lock using the test-and-set operation}
+Declare a binary \verb|flag| field that is set to true if and only if the lock is currently held by some thread. Then the \verb|lock()| method would call \verb|testAndSet(flag)| in a loop, and break once the return value is FALSE. The \verb|unlock()| method simply \verb|set(flag, FALSE)|. See Code \ref{code:TAS_lock} for an implementation.
+
+\makebox[\linewidth]{\rule{17cm}{0.4pt}}
+{\centering \label{code:TAS_lock}
+\begin{verbatim}
+#include <atomic>
+
+class TASlock
+{
+public:
+    void lock() {
+        while (flag.exchange(true)) {}
+    }
+
+    void unlock() {
+        flag.store(false);
+    }
+
+private:
+    std::atomic_bool flag{false};
+};
+\end{verbatim}
+\captionof{Code}{Implementing a lock based on the test-and-set operation.}
+\makebox[\linewidth]{\rule{17cm}{0.4pt}}
+}
 
 \section{Array-based Locks}
 \begin{definition}[Cache-coherence traffic]
@@ -49,8 +93,14 @@ int main() {
 \begin{exercise}
     Comparison of TAS and TTAS lock.
     \begin{enumerate}
+        \item Design a short critical section (such as incrementing a counter and/or logging) that each of $n$ threads will execute.
+        \item Measure the average time difference between a thread's consecutive release and next acquire.
         \item Produce performance plot, with x-axis for number of threads and y-axis for time.
         \item Count number of cache misses for each.
     \end{enumerate}
+\end{exercise}
+
+\begin{exercise}
+    
 \end{exercise}
 % \glsxtrshort{qm};
