@@ -1,0 +1,56 @@
+% !TEX root = ../notes_template.tex
+\chapter{Spin Locks and Contention}\label{chp:spin_locks_contention}
+\minitoc
+
+\section{Peterson revisited}
+Recall the \verb|PetersonNaive| 2-threaded starvation-free lock algorithm introduced in Section \ref{sec:PetersonLock}. It doesn't work in practice, despite our proof of correctness. To show this, consider the following experiment (in code block \ref{code:naive_peterson_experiment}): write a simple program where two threads repeatedly acquire the \verb|PetersonNaive| lock, increment a shared counter, and release the lock. If each thread does this acquire-increment-release process, say 500,000 times, then the counter should read 1,000,000 at the end. Let's see what happens in practice.
+
+\makebox[\linewidth]{\rule{17cm}{0.4pt}}
+{\centering \label{code:naive_peterson_experiment}
+\begin{verbatim}
+#include "Peterson.hpp"
+
+int main() {
+    int counter = 0;
+    PetersonNaive mutex;
+
+    auto f = [&mutex, &counter]() {
+        for (int i = 0; i < 500000; i++) {
+            mutex.lock();
+            counter++;
+            mutex.unlock();
+        }
+    };
+
+    std::thread thread1(f);
+    std::thread thread2(f);
+
+    thread1.join();
+    thread2.join();
+
+    std::cout << "Final result: " << counter <<  std::endl;
+    return 0;
+}
+\end{verbatim}
+\captionof{Code}{If PetersonNaive provided mutual exclusion as expected, then the output should be 1000000. However, I got 988,495 (exact output may vary from run to run).}
+\makebox[\linewidth]{\rule{17cm}{0.4pt}}
+
+\section{Test-and-Set operation}
+
+\section{Array-based Locks}
+\begin{definition}[Cache-coherence traffic]
+    
+\end{definition}
+
+\begin{definition}[False sharing]
+    
+\end{definition}
+\section{Exercises}
+\begin{exercise}
+    Comparison of TAS and TTAS lock.
+    \begin{enumerate}
+        \item Produce performance plot, with x-axis for number of threads and y-axis for time.
+        \item Count number of cache misses for each.
+    \end{enumerate}
+\end{exercise}
+% \glsxtrshort{qm};

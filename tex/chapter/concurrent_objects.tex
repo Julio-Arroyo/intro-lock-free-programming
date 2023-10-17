@@ -1,0 +1,152 @@
+% !TEX root = ../notes_template.tex
+\chapter{Concurrent Objects}\label{chp:concurrent_objects}
+\minitoc
+
+\section{Concurrency and Correctness}
+% \gls{algorithm};
+\subsection{Quiescent Consistency} \label{sec:quiescent_consistency}
+
+\subsection{Sequential Consistency}
+Think about the intuitive notion for sequential consistency in a single-threaded application: if the program defines a sequence of instructions $a,b,c$ (called program order), then the order in which the instructions should be executed is $a,b,c$. This notion can be extended to multi-threaded applications.
+
+\begin{definition}[Sequential consistency in multi-threaded programs]
+    A sequentially consistent multi-threaded program is one where the program order of each individual thread is preserved.
+\end{definition}
+
+Informally speaking, method calls of sequentially consistent objects may be re-ordered as long as the program order of every thread is preserved.
+
+Note the (perhaps counter-intuitive) fact that sequential consistency allows for two calls from different threads that do not overlap to be re-ordered. This means that sequential consistency does not necessarily respect real-time ordering. This can be one motivation to introduce the stronger notion of Linearizability.
+
+\begin{lemma}
+    Sequential consistency is a \textit{non-blocking} correctness condition, because for every pending invocation of a total method, there exists a sequentially consistent response.
+\end{lemma}
+
+\begin{lemma}
+    In general, composing multiple sequentially consistent objects does not result in a sequentially consistent system.
+\end{lemma}
+
+% \begin{fact} [Memory reads and writes are NOT sequentially consistent in most modern multiprocessor architectures]
+\subsection{Memory accesses are NOT sequentially consistent in modern multiprocessor architectures.}
+The order in which your code reads and writes memory is not necessarily the exact order in which memory ends up being actually read from or written to. This is the result of optimization tricks done by both the CPU and the compiler. While these reorderings are invisible in single-threaded programs, they may result in unexpected behavior in multi-threaded programs.
+
+Consider a two-threaded program with two variables initialized to $x \leftarrow 0$ and $y \leftarrow 0$.
+
+\makebox[\linewidth]{\rule{17cm}{0.4pt}}
+{\centering
+\begin{verbatim}
+# Thread 1
+x = 42
+y = 1
+
+# Thread 2
+while y == 0:
+    continue
+print x
+\end{verbatim}
+
+\captionof{Code}{Pseudo-code for a two-threaded program. If the x,y variables were accessed in sequentially consistent order, the printed output should be 42. However, if thread 1's instructions are re-ordered, then there is an interleaving where the printed output is 0.}
+}
+\makebox[\linewidth]{\rule{17cm}{0.4pt}}
+
+Why are memory accesses re-ordered, in the first place? Think about it from the perspective of multi-processor architectural design. When a processor writes to a variable, that change is reflected in the cache but eventually it must be reflected on main memory as well. The first option is that any writes done in one processor's cache is immediately applied to main memory as well. A better option (used in practice) is to temporarily queue them up in a \textit{store buffer} (or \textit{write buffer}); this provides at least two key benefits: writes to different addresses can be batched together and applied at once in a single trip to main memory, and multiple writes to the same address can be absorbed into one.
+
+When you need sequential consistency, one option is to use \textit{memory barriers} (or \textit{fences}), which are CPU instructions that flush out write buffers. They can be expensive, though, using at least $10^2$ cycles.
+% \end{fact}
+
+\subsection{Linearizability}
+\begin{definition}
+    A \textit{linearizable} concurrent object is one in which every call appears to happen instantaneously sometime between the invocation and response.
+\end{definition}
+
+\begin{lemma}
+    Linearizability is compositional: the result of composing linearizable objects is linearizable.
+\end{lemma}
+
+Informally speaking, method calls of different threads can only be re-ordered if they are concurrent.
+
+\begin{lemma}
+    Linearizability $\Rightarrow$ sequential consistency.
+\end{lemma}
+% \glsxtrshort{gd}
+
+\section{Concurrency and Progress}
+\begin{fact}
+    Unexpected thread delays are common in multiprocessors:
+    \begin{itemize}
+        \item A cache miss delays a processor for $10^2$ cycles.
+        \item A page fault delays a processor for $10^6$ cycles.
+        \item Preemption delays a processor for $10^8$ cycles.
+    \end{itemize}
+\end{fact}
+
+\begin{definition}
+    A \textit{wait-free} algorithm is one where every call finishes in a finite number of steps. 
+\end{definition}
+
+\begin{definition}
+    A \textit{lock-free} algorithm is one that guarantees that infinitely often some thread finishes in a finite number of steps. Note that this allows for some threads to starve.
+\end{definition}
+
+\begin{definition}
+    An \textit{obstruction-free} algorithm guarantees that when a thread executes in isolation it finishes in a finite number of steps.
+\end{definition}
+
+\begin{lemma}
+    Wait-free $\Rightarrow$ lock-free $\Rightarrow$ obstruction-free.
+\end{lemma}
+
+\section{The C++ Memory Model}
+A memory model describes the interactions of threads through memory and their shared use of the data.
+
+\section{A Wait-Free, Sequentially Consistent, Single-Producer-Single-Consumer Ring Buffer}
+\makebox[\linewidth]{\rule{17cm}{0.4pt}}
+{\centering
+\begin{verbatim}
+#include <memory>  // unique_ptr
+#include <atomic>
+
+template <typename T>
+class SPSCqueue
+{
+public:
+    SPSCqueue(int capacity)
+    : capacity_{capacity},
+      head_{0},
+      tail_{0}
+    {
+        ringBuffer_ = std::make_unique<T[]>(capacity);
+    }
+
+    void enqueue(T v) {
+        if (tail_.load(std::memory_order_seq_cst) - head.load(std::memory_order_seq_cst) == capacity_) {
+            throw std::exception("FullException");
+        }
+        int tail = tail_.load(std::memory_order_seq_cst);
+        ringBuffer_[tail] = v;
+        tail_.store((tail+1) % capacity_, std::memory_order_seq_cst);
+        return;
+    }
+
+    T dequeue() {
+        if (tail_.load(std::memory_order_seq_cst) == head.load(std::memory_order_seq_cst)) {
+            throw std::exception("EmptyException");
+        }
+
+        int head = head_.load(std::memory_order_seq_cst);
+        T v = ringBuffer_[head];
+        head_.store((head+1) % capacity_, std::memory_order_seq_cst);
+        return v;
+    }
+
+private:
+    int capacity_;
+    std::atomic_int head_;
+    std::atomic_int tail_;
+    std::unique_ptr<T[]> ringBuffer_;
+};
+
+\end{verbatim}
+
+\captionof{Code}{False sharing prevention isn't implemented. Looser memory ordering semantics can be used.}
+}
+\makebox[\linewidth]{\rule{17cm}{0.4pt}}

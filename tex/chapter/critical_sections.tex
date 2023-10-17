@@ -1,0 +1,409 @@
+% !TEX root = ../notes_template.tex
+\chapter{Locks and Mutual Exclusion}\label{chp:discrete_math}
+\minitoc
+
+\section{Critical Sections}
+\begin{definition}[Mutual exclusion property]\label{def:mutual_exclusion}
+    When only one thread executes at the same time.
+\end{definition}
+
+\begin{definition}[Critical section]\label{def:critical_section}
+    A block of code that must be executed under \textit{mutual exclusion} among threads in order to guarantee program correctness.
+\end{definition}
+
+If multiple threads interleave when executing a critical section, the program may fail. The standard way of securing mutual exclusion for a critical section is through the use of a \verb'Lock'.
+\bigskip
+
+\begin{verbbox}
+    template <typename T>
+    concept LockConcept = requires (T t)
+    {
+        { t.lock() };
+        { t.unlock() };
+    };
+\end{verbbox}
+
+{\centering
+\fbox{\theverbbox}
+\captionof{Code}{The Lock interface, using C++ 20 concepts.}
+}
+
+We can evaluate the ``goodness'' of a \verb|Lock| algorithm using the following three properties.
+\begin{enumerate}
+    \item \textbf{Mutual Exclusion}
+    \item \textbf{Deadlock-free:} ``If one or more threads try to acquire the lock, then some thread will succeed''. Equivalently we can say ``if there is a thread trying to acquire the lock, then it is not the case that no one gets it.''
+    \item \textbf{Starvation-free:} ``If a given thread tries to acquire the lock, then that thread will get the lock eventually''. Equivalently, we can say ``every call to \verb|lock()| eventually returns''.
+\end{enumerate}
+
+\begin{corollary}\label{starvation_free_implies_deadlock_free}
+\textbf{L} is a starvation-free lock $\Rightarrow$ \textbf{L} is a deadlock-free lock.
+\end{corollary}
+
+It is worth pointing out that a program that uses only deadlock-free locks may still deadlock. TODO: give example.
+
+\section{2-Thread Locks}
+Let us progressively build a starvation-free lock for two threads.
+
+\subsection{Mutually exclusive, but deadlocks in concurrent lock() calls.}
+As a first (unsuccessful) attempt, consider an algorithm where the lock maintains one flag for each of the two threads. Thus, a thread sets its flag to true whenever it wants to acquire the lock; so a thread blocks while the other thread has the lock.
+
+
+\makebox[\linewidth]{\rule{17cm}{0.4pt}}
+{\centering
+\begin{verbatim}
+class BadTwoThreadedLock
+{
+public:
+    void lock() {
+        int this_thread_id = ThreadID.get();  // either 0 or 1
+        int other_thread_id = 1 - this_thread_id;
+
+        interested[this_thread_id] = true;
+        while (interested[other_thread_id]) {}
+    }
+
+    void unlock() {
+        int this_thread_id = ThreadID.get();
+        interested[this_thread_id] = false;
+    }
+
+private:
+    bool interested[2] = {false, false};    
+};
+static_assert(LockConcept<BadTwoThreadedLock>);
+\end{verbatim}
+
+\captionof{Code}{Simple but incorrect two threaded lock.}
+}
+\makebox[\linewidth]{\rule{17cm}{0.4pt}}
+
+Let us evaluate \verb|BadTwoThreadedLock|:
+\begin{enumerate}
+    \item Does \verb|BadTwoThreadedLock| satisfy mutual exclusion? Yes, proof left as an exercise to the reader.
+    \item Is \verb|BadTwoThreadedLock| deadlock-free? No. If two threads call \verb|lock()| at the same time, it may deadlock:
+    \begin{itemize}
+        \item Thread-0 sets its own flag to true.
+        \item Thread-1 sets its own flag to true.
+        \item Thread-0 reads Thread-1's flag to be true, so it spins in the while loop.
+        \item Thread-1 reads Thread-0's flag to be true, so it spins in the while loop.
+        \item \verb|BadTwoThreadedLock| is in deadlock.
+    \end{itemize}
+
+    \item Is \verb|BadTwoThreadedLock| starvation-free? No. Since it isn't deadlock-free, then it isn't starvation-free, by contrapositive of Corollary \ref{starvation_free_implies_deadlock_free}.
+\end{enumerate}
+
+\subsection{Mutually exclusive, but deadlocks in sequential lock() calls.}
+As a second (unsuccessful) attempt let's try to fix our first attempt; namely, let's make a lock that does not deadlock if two threads call \verb|lock()| at the same time. This can be achieved via the following simple algorithm: when a thread wants to acquire the lock, it will first let the other thread acquire it.
+
+\makebox[\linewidth]{\rule{17cm}{0.4pt}}
+{\centering
+\begin{verbatim}
+class AnotherBadTwoThreadedLock
+{
+public:
+    void lock() {
+        int this_thread_id = ThreadID.get();
+        waiter = this_thread_id;
+        while (waiter == this_thread_id) {}
+    }
+
+    void unlock() {}
+
+private:
+    int waiter;  
+};
+static_assert(LockConcept<BadTwoThreadedLock>);
+\end{verbatim}
+
+\captionof{Code}{Another simple but incorrect two threaded lock.}
+}
+\makebox[\linewidth]{\rule{17cm}{0.4pt}}
+
+Clearly, \verb|AnotherBadTwoThreadedLock| satisfies mutual exclusion. However, it is not deadlock-free (so it also isn't starvation-free). Why? Think about what happens if only Thread-0 tries to acquire the lock and Thread-1 never does:  it will wait forever to let Thread-1 go first. But this violates deadlock-freedom, since there is someone trying to acquire the lock but no one gets it.
+
+\subsection{Peterson Lock: a two-threaded starvation-free algorithm} \label{sec:PetersonLock}
+Third time is the charm, so if we combine the ideas of our first two attempts we arrive at a starvation-free lock called the \textbf{Peterson Lock}.
+
+\makebox[\linewidth]{\rule{17cm}{0.4pt}}
+{\centering \label{code:peterson_lock}
+\begin{verbatim}
+class PetersonNaive {
+public:
+    void lock() {
+        int thisID = ThreadID.get();  // either 0 or 1
+        int otherID = 1 - thisID;
+        
+        interested[thisID] = true;
+        waiter = thisID;
+        while (interested[otherID] && waiter == thisID) {}
+    }
+
+    void unlock() {
+        int thisID = std::this_thread::get_id() == firstThread.load();
+        interested[thisID] = false;
+    }
+
+private:
+    bool interested[2] = {false, false};
+    int waiter{-1};
+};
+static_assert(LockConcept<PetersonNaive>);
+\end{verbatim}
+
+\captionof{Code}{A simple, starvation-free lock algorithm. It also happens to be incorrect, since memory accesses are not sequentially consistent. See Exercise \ref{ex:fix_peterson}}
+}
+\makebox[\linewidth]{\rule{17cm}{0.4pt}}
+
+\begin{claim} \label{peterson_mutex}
+Peterson's Algorithm satisfies mutual exclusion.
+\end{claim}
+\begin{proof}
+    Left as an exercise to the reader. Hint: by contradiction.
+\end{proof}
+
+\begin{claim} \label{peterson_starvation_free}
+Peterson's Lock is a starvation-free lock.
+\end{claim}
+\begin{proof}
+    Left as an exercise to the reader. Hint: by contradiction.
+\end{proof}
+
+\begin{claim}
+    Peterson's Lock is a deadlock-free lock.
+\end{claim}
+\begin{proof}
+    Follows immediately from the fact that it is a starvation-free lock.
+\end{proof}
+
+\section{Lamport's Bakery Algorithm: a fair, N-threaded lock}
+\subsection{Fairness in locks}
+
+Informally speaking, a lock could be considered fair if it is first-come-first-served. Somewhat more precisely, if thread A calls \verb|lock()| before thread B does, then thread A should enter the critical section before thread B. Let us formalize this notion.
+
+First, some mathematical formalisms. Any call to \verb|lock()| consists of two execution time intervals:
+\begin{enumerate}
+    \item A doorway interval, whose execution consists of a bounded number of steps.
+    \item A waiting interval, whose execution may consist of an unbounded number of steps.
+\end{enumerate}
+
+Now, we are ready to formally define fairness.
+
+\begin{definition}[First-come-first-served] \label{lock_fairness}
+    Consider two threads, $A$ and $B$. A lock that is first-come-first-served guarantees that:
+    
+    if $A$'s doorway interval precedes $B$'s doorway interval, then $A$'s critical section interval precedes $B$'s critical section interval.
+\end{definition}
+
+\subsection{Bakery Algorithm}
+Suppose there is a bakery. Whenever a client comes in, he takes a number. The next client to be served is the one with the lowest number that hasn't yet been served.
+
+We can implement an n-threaded lock algorithm using the idea of the bakery. \verb|interested[i]| is a flag indicating if thread $i$ wants to acquire the lock, and \verb|label[i]| is a number showing the relative order when threads first expressed interest in acquiring the lock. \verb|label[i]| is assigned in two steps: scanning all previous labels, and incrementing the maximum by one. Note that, due to execution interleaving, ties are possible: multiple threads may end up with the same label. In such cases, ties are broken by deferring to the thread with lowest id.
+
+\makebox[\linewidth]{\rule{17cm}{0.4pt}}
+{\centering
+\begin{verbatim}
+class BakeryLock
+{
+public:
+    BakeryLock(int num_threads) {
+        n = num_threads;
+        for (int i = 0; i < n; i++) {
+            interested.push_back(false);
+            label.push_back(0);
+        }
+    }
+
+    void lock() {
+        int this_thread = ThreadID.get();
+
+        interested[this_thread] = true;
+        label[this_thread] = max(label) + 1;
+
+        // spin while there is another thread that is interested in
+        // acquiring the lock AND arrived before this thread.
+        while ((THERE EXISTS other_thread != this_thread) SUCH THAT
+            (
+                interested[other_thread] &&
+                (
+                    label[other_thread] < label[this_thread] ||
+                    (
+                        // break tie when two threads have same label
+                        label[other_thread] == label[this_thread] && (other_thread < this_thread)
+                    )
+                )
+            )) {}
+
+    void unlock() {
+        interested[ThreadID.get()] = false;
+    }
+
+private:
+    int n;
+    std::vector<bool> interested;
+    std::vector<bool> label;
+};
+static_assert(LockConcept<BakeryLock>);
+\end{verbatim}
+
+\captionof{Code}{Pseudo-code for the simplest, best-known, starvation-free n-thread lock algorithm.}
+}
+\makebox[\linewidth]{\rule{17cm}{0.4pt}}
+
+\section{Theory digression}
+
+\subsection{Bounded Timestamps}
+
+Note that the timestamps (labels) used in the Bakery Algorithm grow without a bound. This motivates the fundamental question: can we place a bound on the number of timestamps needed for a n-threaded deadlock-free lock algorithm?
+
+Think about the two-threaded case. This can be achieved using three timestamps: 0,1,2 (as long as we agree that 2 comes before 0 and timestamps are consecutive). This notion can be generalized to the $n$-threaded case.
+
+\subsection{Lower Bounds on the Number of Read/Write Locations}
+
+Note that the Bakery algorithm requires reading and writing from $O(n)$ distinct locations, where $n$ is the maximum number of concurrent threads. This motivates the following question: is there a clever lock algorithm, based solely on reading and writing memory, that avoids this overhead?
+
+The answer is no. Any deadlock-free lock algorithm requires allocating and then reading or writing at least $n$ distinct locations in the worst case. What does this mean for the design of modern multiprocessor machines? That we need synchronization operations stronger than read/write, and use them as the basis of our mutual exclusion algorithms.
+
+The other important question is why this lower bound on the number of read/write locations an ``immutable fact of nature''? The answer is based on the principle that any memory location written to by one thread may be overwritten without any other thread ever seeing it.
+
+
+
+\section{Algorithm}
+% \begin{center}
+% \begin{minipage}{.9\linewidth}
+% algorithm2e
+% https://www.overleaf.com/learn/latex/Algorithms#The_algorithm2e_package
+\begin{algorithm}[H]
+    \SetKwInOut{Input}{input}
+    \SetKwInOut{Output}{output}
+    \Input{Integer $N$ and parameter $1^t$}
+    \Output{A decision as to whether $N$ is prime or composite}
+    \BlankLine
+    \For{ $i = 1,2, \ldots, t$} {
+        $a\leftarrow \qty{1,\dots,N_1}$\;
+        \If{$a^{N-1} \neq 1 \mod{N}$}
+    {\Return "composite"}
+    }
+    \Return "prime"
+    \caption{Primality testing - first attempt}
+    \label{alg:miller_rabin}
+\end{algorithm}
+
+\section{Exercises}
+
+\begin{exercise}
+    (\textbf{Herlihy \& Shavit Chapter 2 Exercise \#12})
+\end{exercise}
+\begin{solution}
+    TODO check this answer.
+
+    Achieves mutual exclusion, but is not deadlock-free or starvation-free.
+\end{solution}
+
+\begin{exercise}
+    (\textbf{Herlihy \& Shavit Chapter 2 Exercise \#15})
+\end{exercise}
+\begin{solution}
+    The \verb|FastPath| lock does NOT satisfy the mutual exclusion property.
+    
+    Consider two threads contending for the lock (calling \verb|lock()| at the same time). Then the following interleaving may happen:
+    \begin{itemize}
+        \item Thread-0 sets $x \leftarrow 0$
+        \item Thread-1 sets $x \leftarrow 1$
+        \item Thread-0 reads $y == -1$ so it does not spin on the first while loop.
+        \item Thread-1 also reads $y == -1$ so it also does not spin on the first while loop.
+        \item Thread-0 sets $y \leftarrow 0$
+        \item Thread-0 reads $x == 1$, so it enters IF statement, calls \verb|lock.lock()|, and enters its critical section.
+        \item Thread-1 sets $y \leftarrow 1$, reads $x == 1$, so it does not go inside the IF statement, and enters its own critical section.
+        \item Both threads are in the critical section at the same time.
+    \end{itemize}
+\end{solution}
+
+\begin{exercise} \label{ex:fix_peterson}
+    Fixing the Peterson Lock implementation, see Code \ref{code:peterson_lock}.
+    \begin{enumerate}
+        \item Write a program that consists of two threads. Each increments a shared counter, say half-a-million times, using the Peterson Lock for mutual exclusion. Does the shared counter add up to a million, as expected?
+        \item Explain what went wrong with Part 1.
+        \item Fix Part 1, the counter should be exactly one million.
+    \end{enumerate}
+\end{exercise}
+\begin{solution}
+\begin{verbatim}
+
+#include "Peterson.hpp"
+
+int main() {
+    int counter = 0;
+    PetersonGood mutex;
+
+    auto f = [&mutex, &counter]() {
+        for (int i = 0; i < 500000; i++) {
+            mutex.lock();
+            counter++;
+            mutex.unlock();
+        }
+    };
+
+    std::thread thread1(f);
+    std::thread thread2(f);
+
+    thread1.join();
+    thread2.join();
+
+    std::cout << "Final result: " << counter <<  std::endl;
+    return 0;
+}
+\end{verbatim}
+
+The counter adds up to around 970,000 but does not reach a million.
+
+The problem is that memory accesses are not sequentially consistent, which causes access to the shared counter not to be mutually exclusive. Suppose the lines \verb|interested[thisID] = true;| and \verb|waiter = thisID;| were flipped. Then imagine the following interleaving:
+\begin{itemize}
+    \item Thread B writes \verb|waiter = B|
+    \item Thread A writes \verb|waiter = A|
+    \item Thread A writes \verb|interested[A] = true|
+    \item Thread A reads \verb|interested[B] = false|
+    \item Thread A enters critical section.
+    \item Thread B writes \verb|interested[B] = true|
+    \item Thread B reads \verb|interested[A] = true|, but then also reads \verb|waiter = A|.
+    \item Thread B enters critical section before A has left it.
+\end{itemize}
+
+To avoid the memory accesses from being reordered, we can implement the Peterson Lock in the following way, and the counter does add up to a million.
+
+\begin{verbatim}
+class PetersonGood {
+public:
+    void lock() {
+        std::thread::id currThreadID = std::this_thread::get_id();
+
+        // mark first thread to acquire lock
+        std::thread::id defaultID = std::thread::id();
+        if (firstThread.compare_exchange_strong(defaultID,
+                                                currThreadID,
+                                                std::memory_order_seq_cst,
+                                                std::memory_order_seq_cst)) {
+            std::cout << "FIRST THREAD: " << firstThread << std::endl;
+        }
+
+        int thisID = currThreadID == firstThread.load();
+        int otherID = 1 - thisID;
+        interested[thisID].store(true);
+        waiter.store(thisID);
+        while (interested[otherID].load() && waiter.load() == thisID) {}
+    }
+
+    void unlock() {
+        int thisID = std::this_thread::get_id() == firstThread.load();
+        interested[thisID].store(false);
+    }
+
+private:
+    std::atomic_bool interested[2] = {false, false};
+    std::atomic_int8_t waiter{-1};
+    std::atomic<std::thread::id> firstThread;
+};
+static_assert(LockConcept<PetersonGood>);
+\end{verbatim}
+\end{solution}
+% \end{minipage}
+% \end{center}
