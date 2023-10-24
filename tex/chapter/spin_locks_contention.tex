@@ -82,13 +82,62 @@ private:
 }
 
 \section{Array-based Locks}
+What is the main shortcoming of the \verb|TTASlock|? It has excess \textit{cache-coherence traffic}.
+
 \begin{definition}[Cache-coherence traffic]
-    
+    Consider multiple threads reading from a shared location, each having a locally cached copy of the value. Suppose the value at that shared location changes. That means the locally cached copy of each thread has become \textit{invalidated}. Thus, all threads must reload the value from memory into their cache.
 \end{definition}
 
+Thus, one way to implement a better-performing spin lock is \textit{local spinning}, where each thread spins on a different location. We can do this with an array-based lock.
+
+\subsection{Array-based Lock}
+The algorithm is simple. \verb|ALock| has a boolean array \verb|ready| with one entry for each thread. It has a shared counter \verb|tail| specifying the index of the last entry in the queue. Each thread will get a \textit{thread-local} "slot" number, which the thread will use to index into the boolean array. A thread is allowed to enter its critical section when \verb|ready[slot]| == TRUE.
+
+\makebox[\linewidth]{\rule{17cm}{0.4pt}}
+{\centering \label{code:Alock}
+\begin{verbatim}
+#ifndef ALOCK_HPP
+#define ALOCK_HPP
+
+#define MAX_NO_THREADS 8
+
+class ALock {
+public:
+    ALock() {
+        ready[0] = true;
+    }
+
+    void lock() {
+        slot = (tail++) % MAX_NO_THREADS;
+        while (!ready[slot]) {}
+    }
+
+    void unlock() {
+        ready[slot] = false;
+        ready[(slot+1) % MAX_NO_THREADS] = true;
+    }
+
+private:
+    bool ready[MAX_NO_THREADS];
+    atomic_int tail{0};
+    thread_local int slot;
+}
+
+#endif
+\end{verbatim}
+\captionof{Code}{An array-based lock implementation.}
+\makebox[\linewidth]{\rule{17cm}{0.4pt}}
+}
+
+While \verb|ALock| solves the problem of having \textit{all} threads spin on the same location, we claim that the implementation of \verb|ALock| in Code \ref{code:Alock} allows for multiple threads to effectively spin on shared locations. The problem is \textit{false sharing}.
+
+TODO better explanation of false sharing, also include diagram.
 \begin{definition}[False sharing]
-    
+    The ``units'' or ``building blocks'' of a cache are \textit{cache lines}, which span multiple bytes. This means that when address $a$ is loaded from memory, it is not only the byte at address $a$ that is loaded into the cache, but all the bytes between addresses $a$ and $a+C_s$, where $C_s$ is the cache line size. From the computer architecture point of view, this is a sensible design since memory accesses typically exhibit $spatial locality$, namely that when a memory address is accessed it is likely that neighboring addresses will also be accessed next. However, this design choice allows for the possibility of \textit{false sharing}. As an example, consider \verb|ALock|. Suppose the cache line size spans three entries in the \verb|ready| array. Imagine a situation where three threads $A,B,C$ are contending for the lock, currently $A$ is performing its critical section and $B,C$ are queued; then the array is \verb|ready|$={t,f,f}$. Then $A$ releases the lock, changing the array to \verb|ready|=${f,t,f}$. In principle, only $B$'s cache entry should have been invalidated because \verb|ready[B]| changed but not \verb|ready[C]|. However, because both \verb|ready[B]| and \verb|ready[C]| fall into the same cache line, from $C$'s point of view, its entry was invalidated, it was forced to reload \verb|ready[C]| into the cache, only to find the actual value unchanged.
 \end{definition}
+
+TODO: Alock2 implementation that avoids false sharing.
+
 \section{Exercises}
 \begin{exercise}
     Comparison of TAS and TTAS lock.
@@ -102,6 +151,7 @@ private:
 \begin{solution}
     \begin{enumerate}
         \item See Code \ref{code:TASvTTAS_experiment}
+        
 \makebox[\linewidth]{\rule{17cm}{0.4pt}}
 {\centering \label{code:TASvTTAS_experiment}
 \begin{verbatim}
