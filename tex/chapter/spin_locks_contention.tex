@@ -94,13 +94,105 @@ private:
     Comparison of TAS and TTAS lock.
     \begin{enumerate}
         \item Design a short critical section (such as incrementing a counter and/or logging) that each of $n$ threads will execute.
-        \item Measure the average time difference between a thread's consecutive release and next acquire.
-        \item Produce performance plot, with x-axis for number of threads and y-axis for time.
-        \item Count number of cache misses for each.
+        \item Measure the average time difference between a thread's consecutive release and next acquire. Produce performance plot, with x-axis for number of threads and y-axis for time.
+        \item Challenge: Count number of cache misses for each.
     \end{enumerate}
 \end{exercise}
 
-\begin{exercise}
-    
-\end{exercise}
+\begin{solution}
+    \begin{enumerate}
+        \item See Code \ref{code:TASvTTAS_experiment}
+\makebox[\linewidth]{\rule{17cm}{0.4pt}}
+{\centering \label{code:TASvTTAS_experiment}
+\begin{verbatim}
+#include "TASlock.hpp"
+#include <thread>
+#include <chrono>
+#include <iostream>
+
+int main(int argc, char** argv) {
+    if (argc != 2) {
+        std::cerr << "Expected usage: "
+                  << "'./scaling_counter NUM_THREADS'" << std::endl;
+    }
+
+    int counter = 0;
+    TASlock mutex;
+    int num_threads = std::stoi(argv[1]);
+    int work_per_thread = 1000000 / num_threads;
+
+    auto f = [&mutex, &counter, &work_per_thread]() {
+        bool firstTime = true;
+        std::chrono::time_point<std::chrono::high_resolution_clock> start;
+        for (int i = 0; i < work_per_thread; i++) {
+            mutex.lock();
+            if (firstTime) {
+                firstTime = false;
+            } else {
+                std::chrono::time_point<std::chrono::high_resolution_clock> end =
+                    std::chrono::high_resolution_clock::now();
+                std::chrono::microseconds duration =
+                    std::chrono::duration_cast<std::chrono::microseconds>(end-start);
+                    
+                std::cout << std::this_thread::get_id() << ","
+                          << i << ","
+                          << duration.count() << std::endl;
+            }
+            counter++;
+            mutex.unlock();
+            start = std::chrono::high_resolution_clock::now();
+        }
+    };
+
+    // CSV header
+    std::cout << "thread_id,counter,time" << std::endl;
+
+    std::thread thread1(f);
+    std::thread thread2(f);
+    std::thread thread3(f);
+    std::thread thread4(f);
+    std::thread thread5(f);
+    std::thread thread6(f);
+    std::thread thread7(f);
+    std::thread thread8(f);
+
+    thread1.join();
+    thread2.join();
+    thread3.join();
+    thread4.join();
+    thread5.join();
+    thread6.join();
+    thread7.join();
+    thread8.join();
+
+    // if concurrent accesses to counter, it may not add up to 1M
+    assert(counter == 1000000);
+
+    return 0;
+}
+\end{verbatim}
+\makebox[\linewidth]{\rule{17cm}{0.4pt}}
+}
+    \item See Figure \ref{fig:TASvTTAS_theory_v_practice}
+        \begin{figure}[h]
+         \centering
+         \begin{subfigure}[b]{0.8\textwidth}
+             \centering
+             \includegraphics[width=\textwidth]{figure/plot_theory.png}
+             \caption{Expected results}
+             \label{fig:TASvTTAS_expected}
+         \end{subfigure}
+         \vfill
+         \begin{subfigure}[b]{0.8\textwidth}
+             \centering
+             \includegraphics[width=\textwidth]{figure/correct_plot.png}
+             \caption{Experimental results}
+             \label{fig:TASvTTAS_experiment}
+         \end{subfigure}
+            \caption{Exercise 3.1 part 3}
+            \label{fig:TASvTTAS_theory_v_practice}
+        \end{figure}
+    \end{enumerate}
+\end{solution}
+
 % \glsxtrshort{qm};
