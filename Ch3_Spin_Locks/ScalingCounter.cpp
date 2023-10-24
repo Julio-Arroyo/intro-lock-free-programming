@@ -1,20 +1,29 @@
 #include "TASlock.hpp"
 #include <thread>
 #include <chrono>
+#include <iostream>
 
 int main() {
     int counter = 0;
     TTASlock mutex;
 
     auto f = [&mutex, &counter]() {
+        bool firstTime = true;
+        std::chrono::time_point<std::chrono::high_resolution_clock> start;
         for (int i = 0; i < 1000000; i++) {
             mutex.lock();
+            if (firstTime) {
+                firstTime = false;
+            } else {
+                auto end = std::chrono::high_resolution_clock::now();
+                auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+                std::cout << std::this_thread::get_id() << "," << i << "," << duration.count() << std::endl;
+            }
             counter++;
             mutex.unlock();
+            start = std::chrono::high_resolution_clock::now();
         }
     };
-
-    auto start = std::chrono::high_resolution_clock::now();
 
     std::thread thread1(f);
     // std::thread thread2(f);
@@ -34,11 +43,5 @@ int main() {
     // thread7.join();
     // thread8.join();
 
-    auto end = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-
-
-    std::cout << "DURATION: " << duration.count() << ". ";
-    std::cout <<  "RESULT: " << counter <<  std::endl;
     return 0;
 }
