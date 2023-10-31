@@ -99,6 +99,8 @@ The algorithm is simple. \verb|ALock| has a boolean array \verb|ready| with one 
 #ifndef ALOCK_HPP
 #define ALOCK_HPP
 
+#include <atomic>
+
 #define MAX_NO_THREADS 8
 
 class ALock {
@@ -107,25 +109,27 @@ public:
         ready[0] = true;
     }
 
-    void lock() {
-        slot = (tail++) % MAX_NO_THREADS;
+    /* Return's the slot acquired by the caller. Caller must
+     * pass the returned 'slot' value to the corresponding unlock call. */
+    int lock() {
+        int slot = (tail++) % MAX_NO_THREADS;
         while (!ready[slot]) {}
+        return slot;
     }
 
-    void unlock() {
+    void unlock(const int slot) {
         ready[slot] = false;
         ready[(slot+1) % MAX_NO_THREADS] = true;
     }
 
 private:
     bool ready[MAX_NO_THREADS];
-    atomic_int tail{0};
-    thread_local int slot;
-}
+    std::atomic_int tail{0};
+};
 
 #endif
 \end{verbatim}
-\captionof{Code}{An array-based lock implementation.}
+\captionof{Code}{An array-based lock implementation. Note how the interface changes slightly, and is specific to the implementation. TODO: dig deeper if there is a better way to do it, akin to Java's thread local storage.}
 \makebox[\linewidth]{\rule{17cm}{0.4pt}}
 }
 
@@ -136,7 +140,59 @@ TODO better explanation of false sharing, also include diagram.
     The ``units'' or ``building blocks'' of a cache are \textit{cache lines}, which span multiple bytes. This means that when address $a$ is loaded from memory, it is not only the byte at address $a$ that is loaded into the cache, but all the bytes between addresses $a$ and $a+C_s$, where $C_s$ is the cache line size. From the computer architecture point of view, this is a sensible design since memory accesses typically exhibit $spatial locality$, namely that when a memory address is accessed it is likely that neighboring addresses will also be accessed next. However, this design choice allows for the possibility of \textit{false sharing}. As an example, consider \verb|ALock|. Suppose the cache line size spans three entries in the \verb|ready| array. Imagine a situation where three threads $A,B,C$ are contending for the lock, currently $A$ is performing its critical section and $B,C$ are queued; then the array is \verb|ready|$={t,f,f}$. Then $A$ releases the lock, changing the array to \verb|ready|=${f,t,f}$. In principle, only $B$'s cache entry should have been invalidated because \verb|ready[B]| changed but not \verb|ready[C]|. However, because both \verb|ready[B]| and \verb|ready[C]| fall into the same cache line, from $C$'s point of view, its entry was invalidated, it was forced to reload \verb|ready[C]| into the cache, only to find the actual value unchanged.
 \end{definition}
 
-TODO: Alock2 implementation that avoids false sharing.
+\makebox[\linewidth]{\rule{17cm}{0.4pt}}
+{\centering \label{code:Alock}
+\begin{verbatim}
+#ifndef CACHE_AWARE_ALOCK_HPP
+#define CACHE_AWARE_ALOCK_HPP
+
+#include <new>  // std::hardware_destructive_interference_size
+#include <array>
+#include <atomic>
+#include <iostream>
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Winterference-size"
+
+#define CACHE_LINE_SIZE std::hardware_destructive_interference_size
+#define MAX_NO_THREADS 8
+
+class CacheAwareALock {
+public:
+    CacheAwareALock() {
+       ready[0] = {true};
+    }
+
+    int lock() {
+        int slot = (tail++) % MAX_NO_THREADS;
+        while (!ready[slot].flag) {}
+        return slot;
+    }
+
+    void unlock(const int slot) {
+        ready[slot] = {false};
+        ready[(slot+1) % MAX_NO_THREADS] = {true};
+    }
+
+private:
+    struct alignas(CACHE_LINE_SIZE) ArrElem {
+        bool flag;
+    };
+
+    std::array<ArrElem, MAX_NO_THREADS> ready;
+    alignas(CACHE_LINE_SIZE) std::atomic_int tail{0}; 
+};
+
+#pragma GCC diagnostic pop
+
+#endif
+\end{verbatim}
+\captionof{Code}{An array-based lock implementation that avoids false sharing.}
+\makebox[\linewidth]{\rule{17cm}{0.4pt}}
+}
+
+\subsection{Details of C++ and hardware}
+L1 cache line size in my Mac M1 is 128 bytes. TODO: for some reason, \verb|std::hardware_interference_size| is 256. L1 cache is ~65k bytes.
 
 \section{Exercises}
 \begin{exercise}
