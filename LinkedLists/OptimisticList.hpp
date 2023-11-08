@@ -30,23 +30,19 @@ public:
       std::lock_guard<std::mutex> predLock(pred->mutex);
       std::lock_guard<std::mutex> currLock(curr->mutex);
       if (validate(pred, curr)) {
+        bool isSuccessful = false;
         if (curr->key != newKey) {  // add newNode if not present
-          Node dn = Node(val);
           std::shared_ptr<Node<T>> newNode = std::make_shared<Node<T>>(val);
           newNode->next = curr;
           pred->next = newNode;
           size++;
-
-          #ifdef DEBUG_LOGGING
-            std::cout << "ADD," << val << "," << true << std::endl;
-          #endif
-          return true;
+          isSuccessful = true;
         }
 
         #ifdef DEBUG_LOGGING
-          std::cout << "ADD," << val << "," << false << std::endl;
+          std::cout << "ADD," << val << "," << isSuccessful << std::endl;
         #endif
-        return false;
+        return isSuccessful;
       }
     }
     assert(false);  // unreachable
@@ -67,20 +63,17 @@ public:
       std::lock_guard<std::mutex> predLock(pred->mutex);
       std::lock_guard<std::mutex> currLock(curr->mutex);
       if (validate(pred, curr)) {
+        bool isSuccessful = false;
         if (curr->key == removedKey) {
           pred->next = curr->next;
           size--;
-
-          #ifdef DEBUG_LOGGING
-            std::cout << "REM," << val << "," << true << std::endl;
-          #endif
-          return true;
-        } else {
-          #ifdef DEBUG_LOGGING
-            std::cout << "REM," << val << "," << false << std::endl;
-          #endif
-          return false;
+          isSuccessful = true;
         }
+
+        #ifdef DEBUG_LOGGING
+          std::cout << "REM," << val << "," << isSuccessful << std::endl;
+        #endif
+        return isSuccessful;
       }
     }
   }
