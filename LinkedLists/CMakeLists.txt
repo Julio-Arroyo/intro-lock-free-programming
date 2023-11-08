@@ -4,5 +4,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 project(LinkedLists CXX)
 
-add_executable(main Main.cpp)
+if (DEBUG_LOGGING)
+    add_compile_definitions(DEBUG_LOGGING)
+endif()
+
+add_executable(testOL TestOptimisticList.cpp)
 
