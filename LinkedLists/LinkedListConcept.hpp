@@ -20,9 +20,9 @@ public:
   // to create sentinels
   Node(const T& v, const std::size_t k) : val{v}, key{k} { }
 
-std::shared_ptr<Node<T>> next;
-std::mutex mutex;
-std::size_t key;
+  std::shared_ptr<Node<T>> next;
+  std::mutex mutex;
+  std::size_t key;
 
 private:
   T val;
