@@ -7,7 +7,7 @@ project(LinkedLists CXX)
 set(TARGET test)
 add_executable(${TARGET} TestLinkedList.cpp)
 
-include_directories(${TARGET} PRIVATE "./include/" ".")
+target_include_directories(${TARGET} PRIVATE "./include/" ".")
 
 if (ENABLE_LOGGING)
   target_compile_definitions(${TARGET} PRIVATE ENABLE_LOGGING)
