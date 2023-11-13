@@ -30,18 +30,45 @@ void testSPSC() {
   int work = 42;
 
   auto produce = [&lst, &work]() {
-    for (int i = 0; i < 1; i++) {
-      if (i == 5)
-        lst.contains(work);
+    for (int i = 0; i < 2; i++) {
       lst.add(work);
     }
   };
 
   auto consume = [&lst, &work]() {
-    for (int i = 0; i < 1; i++) {
-      if (i == 5)
-        lst.contains(work);
+    for (int i = 0; i < 2; i++) {
       lst.remove(work);
+    }
+  };
+
+  std::thread thread1(produce);
+  std::thread thread2(consume);
+
+  thread1.join();
+  thread2.join();
+}
+
+void testRandomSPSC() {
+  std::srand(2021);  // set random seed
+  CoarseList<int> lst{};
+  #ifdef ENABLE_LOGGING
+  std::cout << "THREAD_ID,OPE,VAL,RET,SIZ,TS" << std::endl;
+  #endif
+  int maxVal = 10;
+
+  auto produce = [&lst, &maxVal]() {
+    for (int i = 0; i < 10; i++) {
+      double p = ((float) std::rand()) / RAND_MAX;
+      int val = (int) maxVal * p;
+      lst.add(val);
+    }
+  };
+
+  auto consume = [&lst, &maxVal]() {
+    for (int i = 0; i < 10; i++) {
+      double p = ((float) std::rand()) / RAND_MAX;
+      int val = (int) maxVal * p;
+      lst.remove(val);
     }
   };
 
@@ -78,15 +105,15 @@ int main(int argc, char** argv) {
       CoarseList<std::string> lst{};
       singleThreadedTest<std::string>(lst);
     } else if (mode == 'M') {
-      testSPSC();
+      testRandomSPSC();
     } else {
       std::cerr << "Unknown mode: '" << mode << "'" << std::endl;
+      return -1;
     }
     return 0;
-  } else {
-    std::cerr << "Unkwown list type '" << list_type << "'" << std::endl;
-    return -1;
   }
-  return 0;
+
+  std::cerr << "Unkwown list type '" << list_type << "'" << std::endl;
+  return -1;
 }
 

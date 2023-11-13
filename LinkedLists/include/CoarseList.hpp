@@ -15,6 +15,7 @@ public:
     head->next = tail;
     #ifdef ENABLE_LOGGING
     start = std::chrono::high_resolution_clock::now();
+    std::cout << std::boolalpha << std::endl;
     #endif
   }
 
@@ -48,6 +49,7 @@ public:
       node->next = curr;
       pred->next = node;
       isSuccessful = true;
+      size++;
     }
 
     #ifdef ENABLE_LOGGING
@@ -82,6 +84,7 @@ public:
     if (curr->key == key) {
       pred->next = curr->next;
       isSuccessful = true;
+      size--;
     }
 
     #ifdef ENABLE_LOGGING
