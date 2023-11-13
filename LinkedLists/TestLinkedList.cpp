@@ -3,6 +3,7 @@
 #include <string>
 #include <cstring>
 #include "CoarseList.hpp"
+#include "FineList.hpp"
 #include "OptimisticList.hpp"
 
 template<typename E, LinkedListConcept<E> LinkedList>
@@ -21,9 +22,9 @@ void singleThreadedTest(LinkedList& lst) {
   std::cout << "Single threaded tests pass." << std::endl << std::endl;
 }
 
-void testSPSC() {
+template <typename E, LinkedListConcept<E> LinkedList>
+void testSPSC(LinkedList& lst) {
   std::srand(2021);  // set random seed
-  CoarseList<int> lst{};
   #ifdef ENABLE_LOGGING
   std::cout << "THREAD_ID,OPE,VAL,RET,SIZ,TS" << std::endl;
   #endif
@@ -48,9 +49,9 @@ void testSPSC() {
   thread2.join();
 }
 
-void testRandomSPSC() {
+template <typename E, LinkedListConcept<E> LinkedList>
+void testRandomSPSC(LinkedList& lst) {
   std::srand(2021);  // set random seed
-  CoarseList<int> lst{};
   #ifdef ENABLE_LOGGING
   std::cout << "THREAD_ID,OPE,VAL,RET,SIZ,TS" << std::endl;
   #endif
@@ -80,7 +81,17 @@ void testRandomSPSC() {
 }
 
 int main(int argc, char** argv) {
-  if (argc != 3) {
+  if (argc == 1) {
+    std::cout << "USAGE:" << std::endl;
+    std::cout << "\t'./test [MODE] [LIST_TYPE]'" << std::endl;
+    std::cout << "[MODE] argument should be one of:" << std::endl;
+    std::cout << "\t - 'S' for single-threaded testing" << std::endl;
+    std::cout << "\t - 'M' for multi-threaded testing" << std::endl;
+    std::cout << "[LIST_TYPE] argument should be one of:" << std::endl;
+    std::cout << "\t - 'C' for coarselist" << std::endl;
+    std::cout << "\t - 'F' for FineList" << std::endl;
+    return 0;
+  } else if (argc != 3) {
     std::cerr << "Expected usage: ";
     std::cerr << "'./test [MODE] [LST_TYPE]'" << std::endl;
     return -1;
@@ -93,8 +104,9 @@ int main(int argc, char** argv) {
     return -1;
   }
   if (strlen(argv[2]) != 1) {
-    std::cerr << "[LIST_TYPE] argument shoulde be one of:" << std::endl;
+    std::cerr << "[LIST_TYPE] argument should be one of:" << std::endl;
     std::cerr << "\t - 'C' for coarselist" << std::endl;
+    std::cerr << "\t - 'F' for FineList" << std::endl;
   }
 
   char mode = argv[1][0];
@@ -105,7 +117,21 @@ int main(int argc, char** argv) {
       CoarseList<std::string> lst{};
       singleThreadedTest<std::string>(lst);
     } else if (mode == 'M') {
-      testRandomSPSC();
+      CoarseList<int> lst{};
+      testRandomSPSC<int>(lst);
+    } else {
+      std::cerr << "Unknown mode: '" << mode << "'" << std::endl;
+      return -1;
+    }
+    return 0;
+  } else if (list_type == 'F') {
+    if (mode == 'S') {
+      FineList<std::string> lst{};
+      singleThreadedTest<std::string>(lst);
+    } else if (mode == 'M') {
+      FineList<int> lst{};
+      // testRandomSPSC<int>(lst);
+      testSPSC<int>(lst);
     } else {
       std::cerr << "Unknown mode: '" << mode << "'" << std::endl;
       return -1;
@@ -113,7 +139,7 @@ int main(int argc, char** argv) {
     return 0;
   }
 
-  std::cerr << "Unkwown list type '" << list_type << "'" << std::endl;
+  std::cerr << "Unknown list type '" << list_type << "'" << std::endl;
   return -1;
 }
 

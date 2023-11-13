@@ -1,46 +1,34 @@
-#ifndef COARSE_LIST_HPP
-#define COARSE_LIST_HPP
+#ifndef FINE_LIST_HPP
+#define FINE_LIST_HPP
 
-#include <cassert>
-#include <string>
-#include <iostream>
 #include "LinkedListConcept.hpp"
 
-template <typename T>
-class CoarseList {
+template<typename T>
+class FineList {
 public:
-  CoarseList() : size{0} {
+  FineList() : size{0} {
     head = std::make_shared<Node<T>>(T(), 0);
     tail = std::make_shared<Node<T>>(T(), std::numeric_limits<std::size_t>::max());
     head->next = tail;
+
     #ifdef ENABLE_LOGGING
-    std::cout << "LOG: using CoarseList class" << std::endl;
+    std::cout << "LOG: FineList class" << std::endl;
     start = std::chrono::high_resolution_clock::now();
     #endif
   }
 
-  CoarseList(const CoarseList& other) {
-    assert(false);  // TODO: implement me
-    // head = std::make_shared<Node<T>>(T(), 0);
-    // tail = std::make_shared<Node<T>>(T(), std::numeric_limits<std::size_t>::max());
-    // size = 0;
-
-    // std::shared_ptr<Node<T>> curr = other->head->next;
-    // while (curr->key < std::numeric_limits<std::size_t>::max()) {
-    //   head
-    // }
-  }
-
   bool add(const T& val) {
-    std::lock_guard<std::mutex> lock(mutex);
-
     std::size_t key = std::hash<T>{}(val);
     std::shared_ptr<Node<T>> pred = head;
     std::shared_ptr<Node<T>> curr = head->next;
+    pred->mutex.lock();
+    curr->mutex.lock();
 
     while (curr->key < key) {
+      pred->mutex.unlock();
       pred = curr;
       curr = curr->next;
+      curr->mutex.lock();
     }
 
     bool isSuccessful = false;
@@ -65,19 +53,24 @@ public:
                   time);
     #endif
 
+    pred->mutex.unlock();
+    curr->mutex.unlock();
+
     return isSuccessful;
   }
-  
-  bool remove(const T& val) {
-    std::lock_guard<std::mutex> lock(mutex);
 
+  bool remove(const T& val) {
     std::size_t key = std::hash<T>{}(val);
     std::shared_ptr<Node<T>> pred = head;
     std::shared_ptr<Node<T>> curr = head->next;
+    pred->mutex.lock();
+    curr->mutex.lock();
 
     while (curr->key < key) {
+      pred->mutex.unlock();
       pred = curr;
       curr = curr->next;
+      curr->mutex.lock();
     }
 
     bool isSuccessful = false;
@@ -100,19 +93,24 @@ public:
                   time);
     #endif
 
+    pred->mutex.unlock();
+    curr->mutex.unlock();
+
     return isSuccessful;
   }
 
   bool contains(const T& val) {
-    std::lock_guard<std::mutex> lock(mutex);
-
-    std::size_t key =  std::hash<T>{}(val);
+    std::size_t key = std::hash<T>{}(val);
     std::shared_ptr<Node<T>> pred = head;
     std::shared_ptr<Node<T>> curr = head->next;
+    pred->mutex.lock();
+    curr->mutex.lock();
 
     while (curr->key < key) {
+      pred->mutex.unlock();
       pred = curr;
       curr = curr->next;
+      curr->mutex.lock();
     }
 
     bool isSuccessful = false;
@@ -125,38 +123,27 @@ public:
         now = std::chrono::high_resolution_clock::now();
       std::chrono::microseconds
         time = std::chrono::duration_cast<std::chrono::microseconds>(now-start);
-      std::printf("%x,CON,%d,%s,%d,%d\n",
+      std::printf("%x,REM,%d,%s,%d,%d\n",
                   std::this_thread::get_id(),
                   key,
                   isSuccessful ? "true" : "false",
                   size,
                   time);
-      // print();
     #endif
+
+    pred->mutex.unlock();
+    curr->mutex.unlock();
 
     return isSuccessful;
   }
 
 private:
-  void print() {
-    std::shared_ptr<Node<T>> curr = head->next;
-    std::cout << "{";
-    while (curr->key < tail->key) {
-      std::cout << curr->key << ",";
-      curr = curr->next;
-    }
-    std::cout << "}" << std::endl;
-  }
-
-  std::shared_ptr<Node<T>> head;
-  std::shared_ptr<Node<T>> tail;
+  std::shared_ptr<Node<T>> head, tail;
   std::size_t size;
-  std::mutex mutex;  // global lock, acquired on every operation
   #ifdef ENABLE_LOGGING
   std::chrono::time_point<std::chrono::high_resolution_clock> start;
   #endif
 };
-static_assert(LinkedListConcept<CoarseList<std::string>, std::string>);
 
 #endif
 
