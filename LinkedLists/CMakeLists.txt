@@ -13,4 +13,3 @@ if (ENABLE_LOGGING)
   target_compile_definitions(${TARGET} PRIVATE ENABLE_LOGGING)
 endif()
 
-
