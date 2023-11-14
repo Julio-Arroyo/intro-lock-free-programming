@@ -20,8 +20,8 @@ public:
   bool add(const T& val) {
     std::size_t key = std::hash<T>{}(val);
     std::shared_ptr<Node<T>> pred = head;
-    std::shared_ptr<Node<T>> curr = head->next;
     pred->mutex.lock();
+    std::shared_ptr<Node<T>> curr = head->next;
     curr->mutex.lock();
 
     while (curr->key < key) {
@@ -62,8 +62,8 @@ public:
   bool remove(const T& val) {
     std::size_t key = std::hash<T>{}(val);
     std::shared_ptr<Node<T>> pred = head;
-    std::shared_ptr<Node<T>> curr = head->next;
     pred->mutex.lock();
+    std::shared_ptr<Node<T>> curr = head->next;
     curr->mutex.lock();
 
     while (curr->key < key) {
@@ -102,8 +102,8 @@ public:
   bool contains(const T& val) {
     std::size_t key = std::hash<T>{}(val);
     std::shared_ptr<Node<T>> pred = head;
+    pred->mutex.lock();  // lock head b4 getting next, avoid RC1 (see README)
     std::shared_ptr<Node<T>> curr = head->next;
-    pred->mutex.lock();
     curr->mutex.lock();
 
     while (curr->key < key) {
@@ -123,7 +123,7 @@ public:
         now = std::chrono::high_resolution_clock::now();
       std::chrono::microseconds
         time = std::chrono::duration_cast<std::chrono::microseconds>(now-start);
-      std::printf("%x,REM,%d,%s,%d,%d\n",
+      std::printf("%x,CON,%d,%s,%d,%d\n",
                   std::this_thread::get_id(),
                   key,
                   isSuccessful ? "true" : "false",

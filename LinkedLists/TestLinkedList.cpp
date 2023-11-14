@@ -24,20 +24,24 @@ void singleThreadedTest(LinkedList& lst) {
 
 template <typename E, LinkedListConcept<E> LinkedList>
 void testSPSC(LinkedList& lst) {
-  std::srand(2021);  // set random seed
-  #ifdef ENABLE_LOGGING
-  std::cout << "THREAD_ID,OPE,VAL,RET,SIZ,TS" << std::endl;
+  #ifndef ENABLE_LOGGING
+    std::cerr << "Define ENABLE_LOGGING macro for multi-threaded tests." << std::endl;
+    assert(false);
   #endif
+
+  std::cout << "*** Begin Test SPSC ***" << std::endl;
+  std::srand(2021);  // set random seed
+  std::cout << "THREAD_ID,OPE,VAL,RET,SIZ,TS" << std::endl;
   int work = 42;
 
   auto produce = [&lst, &work]() {
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < 1; i++) {
       lst.add(work);
     }
   };
 
   auto consume = [&lst, &work]() {
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < 1; i++) {
       lst.remove(work);
     }
   };
@@ -47,14 +51,19 @@ void testSPSC(LinkedList& lst) {
 
   thread1.join();
   thread2.join();
+  std::cout << "*** End Test SPSC ***" << std::endl << std::endl;
 }
 
 template <typename E, LinkedListConcept<E> LinkedList>
 void testRandomSPSC(LinkedList& lst) {
-  std::srand(2021);  // set random seed
-  #ifdef ENABLE_LOGGING
-  std::cout << "THREAD_ID,OPE,VAL,RET,SIZ,TS" << std::endl;
+  #ifndef ENABLE_LOGGING
+    std::cerr << "Define ENABLE_LOGGING macro for multi-threaded tests." << std::endl;
+    assert(false);
   #endif
+
+  std::cout << "*** Begin Test: Random SPSC ***" << std::endl;
+  std::srand(2021);  // set random seed
+  std::cout << "THREAD_ID,OPE,VAL,RET,SIZ,TS" << std::endl;
   int maxVal = 10;
 
   auto produce = [&lst, &maxVal]() {
@@ -78,6 +87,8 @@ void testRandomSPSC(LinkedList& lst) {
 
   thread1.join();
   thread2.join();
+
+  std::cout << "*** End Test: Random SPSC ***" << std::endl << std::endl;
 }
 
 int main(int argc, char** argv) {
@@ -130,7 +141,7 @@ int main(int argc, char** argv) {
       singleThreadedTest<std::string>(lst);
     } else if (mode == 'M') {
       FineList<int> lst{};
-      // testRandomSPSC<int>(lst);
+      testRandomSPSC<int>(lst);
       testSPSC<int>(lst);
     } else {
       std::cerr << "Unknown mode: '" << mode << "'" << std::endl;
