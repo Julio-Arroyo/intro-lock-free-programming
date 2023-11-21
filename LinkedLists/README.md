@@ -1,3 +1,30 @@
+## Design decision implications
+### Traverse list without locking
+One can decide to avoid the cost of acquiring the lock of every node while traversing list.
+Gains:
+- Multiple threads can traverse different sections of the list without interfering.
+
+Implications:
+- Another thread may modify pred, curr between the time they are found and the time they are locked.
+  => After locking, must make sure that nothing has changed around pred and curr. More precisely, check that pred and curr have not been removed, and that a node has not been added between them.
+## FineList
+Lock acquisitions: every node while traversing list.
+
+## OptimisticList
+Lock acquisitions: only nodes being modified.
+
+Assumptions: works well if cost of traversing list twice w/o locking 
+is less than that of traversing once with locking.
+
+Algorithm to modify list:
+- Do until success:
+    - Iterate through list without locking to find the two nodes to modify: pred, curr.
+    - Lock pred,curr.
+    - If pred, curr were NOT modified by another thread between the time they were found and the time they were locked.
+      - perform modification
+    - Otherwise:
+      - try again
+
 ## Possible Race Conditions: FineList
 ### RC1:
 Before accessing the next node, you must have locked the current.
@@ -20,8 +47,13 @@ This is a problematic order of execution:
    head and tail.
 
 
+## Race Conditions and Bugs: OptimisticList
+### RC1:
+
+
+
 ## Log Examples:
-RandomSPSCTest output (with annotations to check correctness):
+RandomSPSCTest output for FineList (with annotations to check correctness):
 ```
 THREAD_ID,OPE,VAL,RET,SIZ,TS
 T1,ADD,0,true,1,144   -> {0}
@@ -44,5 +76,30 @@ T2,REM,3,false,1,328
 T2,REM,5,false,1,331
 T2,REM,8,false,1,333
 T2,REM,0,false,1,335   -> {7}
+```
+
+RandomSPSCTest output for OptimisticList:
+```
+ THREAD_ID,  OPE,  VAL,  RET, SIZE,   TS
+        T1,  ADD,    0, true,    2,  265  -> {42, 0}
+        T2,  REM,    8,false,    2,  276  -> {42, 0}
+        T2,  REM,    9,false,    2,  281  -> {0, 42}
+        T2,  REM,    7,false,    2,  283  -> {0, 42}
+        T2,  REM,    5,false,    2,  285  ->
+        T1,  ADD,    0,false,    2,  290  ->
+        T1,  ADD,    9, true,    3,  295  -> {0, 9, 42}
+        T1,  ADD,    8, true,    4,  298  -> {0, 8, 9, 42}
+        T1,  ADD,    0,false,    4,  300  -> 
+        T2,  REM,    0, true,    3,  304  -> {8, 9, 42}
+        T2,  REM,    7,false,    3,  313  ->
+        T2,  REM,    3,false,    3,  316  ->
+        T2,  REM,    8, true,    2,  318  -> {9, 42}
+        T2,  REM,    0,false,    2,  320  ->
+        T2,  REM,    5,false,    2,  322  ->
+        T1,  ADD,    0, true,    3,  334  -> {0, 9, 42}
+        T1,  ADD,    3, true,    4,  339  -> {0, 3, 9, 42}
+        T1,  ADD,    5, true,    5,  342  -> {0, 3, 5, 42}
+        T1,  ADD,    8, true,    6,  345  -> {0, 3, 5, 8, 42}
+        T1,  ADD,    0,false,    6,  348  -> {3, 5, 8, 42}
 ```
 

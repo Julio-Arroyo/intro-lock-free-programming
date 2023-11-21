@@ -2,12 +2,21 @@
 #include <thread>
 #include <string>
 #include <cstring>
+
 #include "CoarseList.hpp"
 #include "FineList.hpp"
 #include "OptimisticList.hpp"
+#include "LazyList.hpp"
 
 template<typename E, LinkedListConcept<E> LinkedList>
 void singleThreadedTest(LinkedList& lst) {
+  std::printf("%10s,%5s,%5s,%5s,%5s,%5s\n",
+              "THREAD_ID",
+              "OPE",
+              "VAL",
+              "RET",
+              "SIZE",
+              "TS");
   assert(lst.add("2"));
   assert(lst.add("1"));
   assert(lst.add("0"));
@@ -25,13 +34,19 @@ void singleThreadedTest(LinkedList& lst) {
 template <typename E, LinkedListConcept<E> LinkedList>
 void testSPSC(LinkedList& lst) {
   #ifndef ENABLE_LOGGING
-    std::cerr << "Define ENABLE_LOGGING macro for multi-threaded tests." << std::endl;
+    std::cerr << "Must define ENABLE_LOGGING macro for multi-threaded tests." << std::endl;
     assert(false);
   #endif
 
   std::cout << "*** Begin Test SPSC ***" << std::endl;
   std::srand(2021);  // set random seed
-  std::cout << "THREAD_ID,OPE,VAL,RET,SIZ,TS" << std::endl;
+  std::printf("%10s,%5s,%5s,%5s,%5s,%5s\n",
+              "THREAD_ID",
+              "OPE",
+              "VAL",
+              "RET",
+              "SIZE",
+              "TS");
   int work = 42;
 
   auto produce = [&lst, &work]() {
@@ -63,7 +78,13 @@ void testRandomSPSC(LinkedList& lst) {
 
   std::cout << "*** Begin Test: Random SPSC ***" << std::endl;
   std::srand(2021);  // set random seed
-  std::cout << "THREAD_ID,OPE,VAL,RET,SIZ,TS" << std::endl;
+  std::printf("%10s,%5s,%5s,%5s,%5s,%5s\n",
+              "THREAD_ID",
+              "OPE",
+              "VAL",
+              "RET",
+              "SIZE",
+              "TS");
   int maxVal = 10;
 
   auto produce = [&lst, &maxVal]() {
@@ -91,33 +112,43 @@ void testRandomSPSC(LinkedList& lst) {
   std::cout << "*** End Test: Random SPSC ***" << std::endl << std::endl;
 }
 
+std::string getModeString() {
+  return std::string("[MODE] argument should be one of:\n") +
+         std::string("\t - 'S' for single-threaded testing\n") +
+         std::string("\t - 'M' for multi-threaded testing\n"); 
+}
+
+std::string getListTypeString() {
+  return std::string("[LIST_TYPE] argument should be one of:\n") +
+         std::string("\t - 'C' for coarselist\n") + 
+         std::string("\t - 'F' for FineList\n") +
+         std::string("\t - 'O' for OptimisticList\n") +
+         std::string("\t - 'L' for LazyList\n");
+}
+
+std::string getUsageString() {
+  return std::string("USAGE:\n") +
+         std::string("\t'./test [MODE] [LIST_TYPE]'\n") +
+         getModeString() +
+         getListTypeString();
+}
+
 int main(int argc, char** argv) {
   if (argc == 1) {
-    std::cout << "USAGE:" << std::endl;
-    std::cout << "\t'./test [MODE] [LIST_TYPE]'" << std::endl;
-    std::cout << "[MODE] argument should be one of:" << std::endl;
-    std::cout << "\t - 'S' for single-threaded testing" << std::endl;
-    std::cout << "\t - 'M' for multi-threaded testing" << std::endl;
-    std::cout << "[LIST_TYPE] argument should be one of:" << std::endl;
-    std::cout << "\t - 'C' for coarselist" << std::endl;
-    std::cout << "\t - 'F' for FineList" << std::endl;
+    std::cout << getUsageString();
     return 0;
   } else if (argc != 3) {
-    std::cerr << "Expected usage: ";
-    std::cerr << "'./test [MODE] [LST_TYPE]'" << std::endl;
+    std::cerr << getUsageString();
     return -1;
   }
 
   if (strlen(argv[1]) != 1) {
-    std::cerr << "[MODE] argument should be one of:" << std::endl;
-    std::cerr << "\t - 'S' for single-threaded testing" << std::endl;
-    std::cerr << "\t - 'M' for multi-threaded testing" << std::endl;
+    std::cerr << getModeString();
     return -1;
   }
   if (strlen(argv[2]) != 1) {
-    std::cerr << "[LIST_TYPE] argument should be one of:" << std::endl;
-    std::cerr << "\t - 'C' for coarselist" << std::endl;
-    std::cerr << "\t - 'F' for FineList" << std::endl;
+    std::cerr << getListTypeString();
+    return -1;
   }
 
   char mode = argv[1][0];
@@ -148,6 +179,26 @@ int main(int argc, char** argv) {
       return -1;
     }
     return 0;
+  } else if (list_type == 'O') {
+    if (mode == 'S') {
+      OptimisticList<std::string> lst{};
+      singleThreadedTest<std::string>(lst);
+      return 0;
+    } else if (mode == 'M') {
+      OptimisticList<int> lst{};
+      testSPSC<int>(lst);
+      testRandomSPSC<int>(lst);
+      return 0;
+    } else {
+      std::cerr << "Unknown mode: '" << mode << "'" << std::endl;
+      return -1;
+    }
+  } else if (list_type == 'L') {
+    if (mode == 'S') {
+      LazyList<std::string> lst{};
+      singleThreadedTest<std::string>(lst);
+      return 0;
+    }
   }
 
   std::cerr << "Unknown list type '" << list_type << "'" << std::endl;
