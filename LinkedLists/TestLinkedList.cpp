@@ -21,13 +21,36 @@ void singleThreadedTest(LinkedList& lst) {
   assert(lst.add("1"));
   assert(lst.add("0"));
   assert(!lst.remove("8"));
-  assert(!lst.add("2"));
+  assert(!lst.remove("3"));
   assert(!lst.remove("9"));
   assert(!lst.add("1"));
   assert(lst.remove("1"));
   assert(lst.add("1"));
   assert(lst.add("3"));
   assert(!lst.add("2"));
+  std::cout << "Single threaded tests pass." << std::endl << std::endl;
+}
+
+template<typename E, LinkedListConcept<E> LinkedList>
+void singleThreadedTest2(LinkedList& lst) {
+  std::printf("%10s,%5s,%5s,%5s,%5s,%5s\n",
+              "THREAD_ID",
+              "OPE",
+              "VAL",
+              "RET",
+              "SIZE",
+              "TS");
+  assert(lst.add(2));
+  assert(lst.add(1));
+  assert(lst.add(4));
+  assert(!lst.remove(8));
+  assert(!lst.remove(3));
+  assert(!lst.remove(9));
+  assert(!lst.add(1));
+  assert(lst.remove(1));
+  assert(lst.add(1));
+  assert(lst.add(3));
+  assert(!lst.add(2));
   std::cout << "Single threaded tests pass." << std::endl << std::endl;
 }
 
@@ -195,8 +218,10 @@ int main(int argc, char** argv) {
     }
   } else if (list_type == 'L') {
     if (mode == 'S') {
-      LazyList<std::string> lst{};
-      singleThreadedTest<std::string>(lst);
+      LazyList<int> lst{};
+      singleThreadedTest2<int>(lst);
+      // LazyList<std::string> lst{};
+      // singleThreadedTest<std::string>(lst);
       return 0;
     }
   }

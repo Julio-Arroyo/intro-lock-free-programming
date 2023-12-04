@@ -72,19 +72,10 @@ private:
   /* Add, remove have very repetitive code, so group together */
   bool modifyList(const ModificationType& type, const T& val) {
     std::size_t key = std::hash<T>{}(val);
-    std::cout << "val " << val << std::endl;
-    std::cout << "key " << key << std::endl;
-    std::cout << "tail->key " << tail->key << std::endl;
-    std::cout << "max " << std::numeric_limits<std::size_t>::max() << std::endl;
     while (true) {
       std::shared_ptr<MarkedNode<T>> pred = head;
       std::shared_ptr<MarkedNode<T>> curr = head->next;
-      int i = 0;
       while (curr->key < key) {
-        if (i++ >= 3) {
-          break;
-        }
-        std::cout << "wtf " << i << "," << curr->key << std::endl;
         pred = curr;
         curr = curr->next;
       }
@@ -98,7 +89,6 @@ private:
         switch (type) {
           case ModificationType::ADD:
             if (curr->key != key) {
-              std::cout << "diagnose" << std::endl;
               std::shared_ptr<MarkedNode<T>> node = std::make_shared<MarkedNode<T>>(val);
               node->next = curr;
               pred->next = node;
@@ -107,7 +97,6 @@ private:
             }
             break;
           case ModificationType::REMOVE:
-            std::cout << "suspicious " << std::endl;
             if (curr->key == key) {
               curr->removed = true;
               pred->next = curr->next;
@@ -120,7 +109,6 @@ private:
             assert(false);
             break;
         }
-        std::cout << "expected " << std::endl;
 
         #ifdef ENABLE_LOGGING
           std::chrono::time_point<std::chrono::high_resolution_clock> now = std::chrono::high_resolution_clock::now();
@@ -132,7 +120,6 @@ private:
                       isSuccessful ? "true" : "false",
                       size,
                       time);
-          printList();
         #endif
         return isSuccessful;
       }
@@ -147,6 +134,13 @@ private:
       curr = curr->next;
     }
     std::cout << "}" << std::endl;
+    
+    curr = head;
+    while (curr->key < tail->key) {
+      std::cout << curr.get() << "->";
+      curr = curr->next;
+    }
+    std::cout << curr.get() << std::endl;
   }
 
   std::shared_ptr<MarkedNode<T>> head;

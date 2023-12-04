@@ -28,5 +28,20 @@ private:
   T val;
 };
 
+template <typename T>
+class MarkedNode {
+public:
+  MarkedNode(const T& v) : val{v}, key{std::hash<T>{}(v)} { }
+
+  // to create sentinels
+  MarkedNode(const T& v, const std::size_t k) : val{v}, key{k} { }
+
+  std::shared_ptr<MarkedNode<T>> next{nullptr};
+  std::mutex mutex;
+  std::size_t key{0};
+  bool removed{false};
+  T val;
+};
+
 #endif
 

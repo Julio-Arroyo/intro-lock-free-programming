@@ -6,7 +6,7 @@ Gains:
 
 Implications:
 - Another thread may modify pred, curr between the time they are found and the time they are locked.
-  => After locking, must make sure that nothing has changed around pred and curr. More precisely, check that pred and curr have not been removed, and that a node has not been added between them.
+  => Solution: After locking, must make sure that nothing has changed around pred and curr. More precisely, check that pred and curr have not been removed, and that a node has not been added between them.
 ## FineList
 Lock acquisitions: every node while traversing list.
 
@@ -47,9 +47,21 @@ This is a problematic order of execution:
    head and tail.
 
 
-## Race Conditions and Bugs: OptimisticList
-### RC1:
+## Race Conditions and Bugs: LazyList 
+### Bug 1:
+#### Issue:
+Constructors of MarkedNode did not initialize explicitly removed field.
 
+#### Observed behavior:
+Sometimes test would pass, but most times it would get stuck inside infinite loop.
+
+#### How I solved it:
+I spent several hours across many days trying to ensure that pointers in the list were as expected.
+But the issue came down to the fact that the removed field would sometimes get set to true when
+creating the node, which would cause the validate() call to fail, and thus it got stuck in an infinite loop.
+
+#### Lesson:
+Always initialize all fields explicitly.
 
 
 ## Log Examples:
