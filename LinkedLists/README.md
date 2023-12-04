@@ -115,3 +115,28 @@ RandomSPSCTest output for OptimisticList:
         T1,  ADD,    0,false,    6,  348  -> {3, 5, 8, 42}
 ```
 
+RandomSPSCTest output for LazyList:
+```
+ THREAD_ID,  OPE,  VAL,  RET, SIZE,   TS
+  6efa3000,  ADD,    0, true,    1,  378 -> {0}
+  6f02f000,  REM,    8,false,    1,  397
+  6f02f000,  REM,    9,false,    1,  409
+  6f02f000,  REM,    7,false,    1,  412
+  6f02f000,  REM,    5,false,    1,  414
+  6efa3000,  ADD,    0,false,    1,  421
+  6efa3000,  ADD,    9, true,    2,  433 -> {0, 9}
+  6efa3000,  ADD,    8, true,    3,  437 -> {0, 8, 9}
+  6efa3000,  ADD,    0,false,    3,  439
+  6efa3000,  ADD,    0,false,    3,  442
+  6efa3000,  ADD,    7, true,    4,  447 -> {0, 7, 8, 9}
+  6efa3000,  ADD,    3, true,    5,  450 -> {0, 3, 7, 8, 9}
+  6efa3000,  ADD,    8,false,    5,  457
+  6f02f000,  REM,    0, true,    4,  464 -> {3, 7, 8, 9}
+  6f02f000,  REM,    5,false,    4,  470
+  6f02f000,  REM,    3, true,    3,  472 -> {7, 8, 9}
+  6f02f000,  REM,    5,false,    3,  474
+  6f02f000,  REM,    8, true,    2,  477 -> {7, 9}
+  6efa3000,  ADD,    0, true,    3,  489 -> {0, 7, 9}
+  6f02f000,  REM,    0, true,    2,  512 -> {7, 9}
+```
+

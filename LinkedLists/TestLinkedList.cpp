@@ -223,6 +223,11 @@ int main(int argc, char** argv) {
       // LazyList<std::string> lst{};
       // singleThreadedTest<std::string>(lst);
       return 0;
+    } else if (mode == 'M') {
+      LazyList<int> lst{};
+      testSPSC<int>(lst);
+      testRandomSPSC<int>(lst);
+      return 0;
     }
   }
 
