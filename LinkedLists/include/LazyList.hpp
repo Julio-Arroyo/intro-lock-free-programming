@@ -12,12 +12,6 @@
 #endif
 #include "LinkedListConcept.hpp"
 
-enum ModificationType {
-  UNKNOWN,
-  ADD,
-  REMOVE
-};
-
 std::string toString(const ModificationType& type) {
   switch (type) {
     case ModificationType::ADD:

@@ -4,6 +4,8 @@
 #include <concepts>
 #include <memory>
 #include <mutex>
+#include <atomic>
+#include "AtomicMarkableReference.hpp"
 
 template <typename T, typename E>
 concept LinkedListConcept = requires (T t, E e) {
@@ -12,6 +14,13 @@ concept LinkedListConcept = requires (T t, E e) {
   { t.contains(e) } -> std::same_as<bool>;
 };
 
+enum ModificationType {
+  UNKNOWN,
+  ADD,
+  REMOVE
+};
+
+// TODO: move Node classes to a new file Node.hpp
 template <typename T>
 class Node {
 public:
@@ -41,6 +50,37 @@ public:
   std::size_t key{0};
   bool removed{false};
   T val;
+};
+
+// Node class for LockFreeList
+template <typename T>
+class LockFreeNode {
+public:
+  LockFreeNode(const T& v) : val{v}, key{std::hash<T>{}(v)} { }
+  LockFreeNode(const T& v, const std::size_t k) : val{v}, key{k} { }
+
+  /* Returns true if THIS node is removed. Note that the flag is stored
+   * in the AtomicMarkableReference */
+  bool isRemoved() {
+    return next.isMarked();
+  }
+
+  std::shared_ptr<LockFreeNode<T>> getNext() {
+    return false;
+  }
+
+  void setNext(std::shared_ptr<T> succ) {
+    return false;
+  }
+
+  bool attemptMarkAsRemoved() {
+    assert(false);
+    return false;
+  }
+
+  AtomicMarkableReference<LockFreeNode<T>> next{nullptr, false};
+  std::size_t key{0};
+  T val{};
 };
 
 #endif
