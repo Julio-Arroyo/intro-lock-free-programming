@@ -14,9 +14,14 @@ template <typename T>
 class LockFreeList {
 public:
   LockFreeList() {
-    head = std::make_shared<LockFreeNode<T>>(T(), 0);
-    tail = std::make_shared<LockFreeNode<T>>(T(), std::numeric_limits<std::size_t>::max());
-    head->setNext(tail);
+    std::shared_ptr<LockFreeNode<T>>
+      head_ = std::make_shared<LockFreeNode<T>>(T(), 0);
+    std::shared_ptr<LockFreeNode<T>>
+      tail_ = std::make_shared<LockFreeNode<T>>(T(), std::numeric_limits<std::size_t>::max());
+
+    head = AtomicMarkableReference<LockFreeNode<T>>(head_.get(), false);
+    tail = AtomicMarkableReference<LockFreeNode<T>>(tail_.get(), false);
+    head.getReference()->setNext(tail);
     
     #ifdef ENABLE_LOGGING
       start = std::chrono::high_resolution_clock::now();
@@ -27,7 +32,7 @@ public:
     std::size_t key = std::hash<T>{}(val);
     bool isSuccessful{false};
     while (true) {
-      std::shared_ptr<T> pred, curr;
+      std::shared_ptr<LockFreeNode<T>> pred, curr;
       std::tie(pred, curr) = find(key);
 
       if (curr->key == key) {
@@ -75,7 +80,7 @@ public:
     std::size_t key = std::hash<T>{}(val);
     bool isSuccessful{false};
     while (true) {
-      std::shared_ptr<T> pred, curr;
+      std::shared_ptr<LockFreeNode<T>> pred, curr;
       std::tie(pred, curr) = find(key);
 
       if (curr->key != key) {
