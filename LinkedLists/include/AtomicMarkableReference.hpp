@@ -3,6 +3,7 @@
 
 #include <memory>  // shared_ptr
 #include <atomic>  // atomic
+#include <utility>  // pair
 #include <iostream>
 
 template <typename T>
@@ -18,19 +19,26 @@ public:
                      const std::shared_ptr<T> newRef,
                      bool expectedMark,
                      bool newMark) {
+    assert(false);
     return false;
   }
 
   bool attemptMark(const T& expectedRef, bool newMark) {
+    assert(false);
     return false;
   }
 
   std::shared_ptr<T> getReference() {
+    assert(false);
     return nullptr;
   }
 
-  std::shared_ptr<T> get(bool* markHolder) {
+  std::pair<std::shared_ptr<T>, bool> getRefAndMark() {
     return nullptr;
+  }
+
+  bool isMarked() {
+    return false;
   }
 
 private:
