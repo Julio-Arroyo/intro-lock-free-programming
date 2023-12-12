@@ -1,15 +1,72 @@
 \chapter{Linked Lists}\label{chp:linked_lists}
 \minitoc
 
-\section{Globally-locked List}
-List has a single lock, which must be acquired and released at the beginning and end of every method call.
+% \section{Globally-locked List}
+% List has a single lock, which must be acquired and released at the beginning and end of every method call.
 
-\section{Locally-locked List}
-List has one lock for each node. ``Hand-over-hand'' acquire-release pattern when traversing.
+% \section{Locally-locked List}
+% List has one lock for each node. ``Hand-over-hand'' acquire-release pattern when traversing.
 
-\section{Optimistic synchronization}
+% \section{Optimistic synchronization}
 
-\section{Lazy synchronization}
+% \section{Lazy synchronization}
 
-\section{Lock-free List}
+% \section{Lock-free List}
 
+% \section{Summary}
+The problem of designing a concurrent Linked List boils down to the problem of synchronizing concurrent operations (add, remove, contains) on the list.
+\begin{enumerate}
+    \item As a first idea, you can introduce a \textbf{single, global lock} that must be acquired when performing any operation.
+
+    Problems:
+    \begin{itemize}
+        \item Two distinct locations in the list cannot be modified at the same time.
+    \end{itemize}
+
+    \item To solve the above problem, you can \textbf{replace the single, global lock by one lock per node}. Then, performing an operation on the list consists of a hand-over-hand lock-acquiring traversal, and modifying the pred/curr nodes while locked.
+
+    Problem:
+    \begin{itemize}
+        \item Too many expensive lock acquisitions. This idea requires not only locking the pred/curr nodes being modified, but locking/releasing all the nodes in the list leading up to pred/curr while traversing.
+        \item If Thread T1 is modifying pred/curr, and Thread T2 wants to modify two other nodes beyond pred/curr, it won't be able to until T1 releases pred/curr and T2 can continue its hand-over-hand traversal to its target location.
+    \end{itemize}
+
+    \item To solve the above problems, you can \textbf{keep the one-lock-per-node but traverse without hand-over-hand locking and instead ONLY lock the two nodes pred/curr being actually modified.}
+
+    \underline{Traversing without hand-over-hand locking comes at the price of having to traverse a second time}. To see why, consider the steps in performing an operation.
+    \begin{itemize}
+        \item Traverse without locking, starting from the head.
+        \item Lock pred/curr.
+        
+        Note that there is a small interval between when pred/curr were \textit{found} and when they were \textit{locked}, where any of three things could have gone wrong.
+        \begin{itemize}
+            \item Another thread removed pred.
+            \item Another thread removed curr.
+            \item Another thread inserted a new node between pred/curr.
+        \end{itemize}
+
+        \item With pred/curr locked, check that none of the three things that could have gone wrong went wrong; otherwise, restart the operation.
+        \begin{itemize}
+            \item Check that pred wasn't removed, by \textbf{traversing again from the head to pred}.
+            \item Check curr was not removed and that no node was inserted between pred/curr, by ensuring that pred.next == curr.
+        \end{itemize}
+    \end{itemize}
+
+    This approach only improves on the previous approach if the cost of traversing twice is less than the cost of traversing once while locking every node in the path.
+
+    Problems:
+    \begin{itemize}
+        \item The purpose of the second traversal is only to check that pred has not been removed. Can this same outcome be achieved without traversing twice?
+    \end{itemize}
+
+    \item \textbf{Every node will now have a ``removed flag'' in addition to a lock.}
+    
+    In a call to remove(), \textit{before} unlinking the desired node from the list, its removed flag will be set. This means that in future calls to any operation, threads can check whether pred has been removed simply by testing its flag, rather than traversing from the head to check whether it's reachable.
+
+    Problem:
+    \begin{itemize}
+        \item Calls to contains() do not need any lock acquisitions (simply traverse to pred/curr and check that none of the possible things went wrong (listed above)). But add/remove still do need to acauire locks before modifying the nodes. Can we do without locks altogether?
+    \end{itemize}
+
+    \item Lock-free operations can be achieved by using an AtomicMarkableReference: if the removed flag and the next pointers can be accessed/modified atomically, then there is no need for locks.
+\end{enumerate}
