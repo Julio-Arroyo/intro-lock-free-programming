@@ -7,6 +7,7 @@
 #include "FineList.hpp"
 #include "OptimisticList.hpp"
 #include "LazyList.hpp"
+#include "LockFreeList.hpp"
 
 template<typename E, LinkedListConcept<E> LinkedList>
 void singleThreadedTest(LinkedList& lst) {
@@ -177,7 +178,7 @@ int main(int argc, char** argv) {
   char mode = argv[1][0];
   char list_type = argv[2][0];
 
-  if (list_type == 'C') {
+  if (list_type == 'C') {  // Coarse List
     if (mode == 'S') {
       CoarseList<std::string> lst{};
       singleThreadedTest<std::string>(lst);
@@ -189,7 +190,7 @@ int main(int argc, char** argv) {
       return -1;
     }
     return 0;
-  } else if (list_type == 'F') {
+  } else if (list_type == 'F') {  // Fine-grained List
     if (mode == 'S') {
       FineList<std::string> lst{};
       singleThreadedTest<std::string>(lst);
@@ -202,12 +203,12 @@ int main(int argc, char** argv) {
       return -1;
     }
     return 0;
-  } else if (list_type == 'O') {
+  } else if (list_type == 'O') {  // Optimistic List
     if (mode == 'S') {
       OptimisticList<std::string> lst{};
       singleThreadedTest<std::string>(lst);
       return 0;
-    } else if (mode == 'M') {
+    } else if (mode == 'M') {  
       OptimisticList<int> lst{};
       testSPSC<int>(lst);
       testRandomSPSC<int>(lst);
@@ -216,7 +217,7 @@ int main(int argc, char** argv) {
       std::cerr << "Unknown mode: '" << mode << "'" << std::endl;
       return -1;
     }
-  } else if (list_type == 'L') {
+  } else if (list_type == 'L') {  // Lazy List
     if (mode == 'S') {
       LazyList<int> lst{};
       singleThreadedTest2<int>(lst);
@@ -229,9 +230,24 @@ int main(int argc, char** argv) {
       testRandomSPSC<int>(lst);
       return 0;
     }
+  } else if (list_type == 'W') {  // Lock-free list
+    if (mode == 'S') {
+      LockFreeList<int> lst{};
+      singleThreadedTest<int>(lst);
+
+      // std::array<LockFreeNode<int>, 2> arr = {LockFreeNode{2}, LockFreeNode{3}};
+      // AtomicMarkableReference<LockFreeNode<int>> ref1{&arr[0], true};
+      // AtomicMarkableReference<LockFreeNode<int>> ref2{&arr[1], true};
+      return 0;
+    } else if (mode == 'M') {
+      LockFreeList<int> lst{};
+      testSPSC<int>(lst);
+      testRandomSPSC<int>(lst);
+      return 0;
+    }
   }
 
   std::cerr << "Unknown list type '" << list_type << "'" << std::endl;
   return -1;
-}
+};
 

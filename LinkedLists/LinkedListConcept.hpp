@@ -65,19 +65,17 @@ public:
     return next.isMarked();
   }
 
-  std::shared_ptr<LockFreeNode<T>> getNext() {
-    return false;
-  }
-
   void setNext(std::shared_ptr<T> succ) {
-    return false;
+    next = AtomicMarkableReference<LockFreeNode<T>>(succ, false);
   }
 
+  /* Try to mark this node as removed, return true if successful */
   bool attemptMarkAsRemoved() {
-    assert(false);
-    return false;
+    std::shared_ptr<LockFreeNode<T>> nextPtr = next.getReference();
+    return next.attemptMark(nextPtr, true);
   }
 
+  // TODO: make private
   AtomicMarkableReference<LockFreeNode<T>> next{nullptr, false};
   std::size_t key{0};
   T val{};

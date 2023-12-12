@@ -22,7 +22,7 @@ public:
     head = AtomicMarkableReference<LockFreeNode<T>>(head_.get(), false);
     tail = AtomicMarkableReference<LockFreeNode<T>>(tail_.get(), false);
     head.getReference()->setNext(tail);
-    
+
     #ifdef ENABLE_LOGGING
       start = std::chrono::high_resolution_clock::now();
     #endif
@@ -50,7 +50,7 @@ public:
           isSuccessful = true;
           break;
         }
-        
+
         // could not point pred->newNode... restarting add()
 
         // pred->newNode fails if another thread either
@@ -144,7 +144,12 @@ private:
         curr = curr->next.getReference();
       }
 
-      return std::make_pair(pred, curr);
+      while (pred->next.compareAndSet(curr, curr->next.getReference(),
+                                      true, false)) {
+        curr = curr->next.getReference();
+      }
+
+      return std::make_pair(pred, pred->next.getReference());
     }
 
     // unreachable
