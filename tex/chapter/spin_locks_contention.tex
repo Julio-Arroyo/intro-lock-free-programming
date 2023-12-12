@@ -54,6 +54,38 @@ One of the most basic \textit{read-modify-write} (RMW) operations is test-and-se
     \label{alg:testAndSet}
 \end{algorithm}
 
+A (slightly) more general RMW operation is compare-and-swap
+
+\begin{algorithm}[H]
+    \SetKwInOut{Input}{input}
+    \SetKwInOut{Output}{output}
+    \Input{A pointer $p$, an expected value $e$, a new value $v$}
+    \Output{Boolean}
+    \BlankLine
+    \tcp{Performs the following atomically}
+    \uIf{$*p==e$} {
+        $*p \leftarrow v$\;
+        \Return TRUE\;
+    } \uElse {
+        \Return FALSE\;
+    }
+    \caption{Compare-and-swap operation. Also referred to as compare-and-set and compare-exchange}.
+    \label{alg:testAndSet}
+\end{algorithm}
+
+From a x86 compiler perspective:
+
+\verb|cmpxchg src, dst|
+becomes
+\verb|Movq e, %eax|
+\begin{itemize}
+    \item Check if \verb|%eax| contains the expected value.
+    \begin{itemize}
+        \item If so, set the ZF-bit in EFLAGS and put \verb|src| into \verb|dst|
+        \item otherwise, put \verb|dst| into \verb|%eax|
+    \end{itemize}
+\end{itemize}
+
 \subsubsection{Implementing a spin lock using the test-and-set operation}
 Declare a binary \verb|flag| field that is set to true if and only if the lock is currently held by some thread. Then the \verb|lock()| method would call \verb|testAndSet(flag)| in a loop, and break once the return value is FALSE. The \verb|unlock()| method simply \verb|set(flag, FALSE)|. See Code \ref{code:TAS_lock} for an implementation.
 
