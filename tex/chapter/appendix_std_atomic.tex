@@ -1,0 +1,68 @@
+% !TEX root = ../notes_template.tex
+\chapter{std::atomic}
+
+\verb|std::atomic| is to lock-free programming what PyTorch is to deep learning.|
+
+\bigskip
+\noindent
+\textbf{Suppose we have declared a variable} \verb|std::atomic<int> x{0};| \textbf{ and perform an atomic increment } \verb|x++| \textbf{. What goes on under the hood so that the operation is performed atomically?}
+
+Recall that the problem with non-atomic operations is that multiple cores write to a same memory address, resulting in some writes stomping on previous. Thus, the key to atomicity (conceptually) is to give a core exclusive access to memory, enabling a write to go back and forth between the CPU and main memory by trickling up and down the caches.
+
+One caveat, is that in reality, the core with exclusive access to main memory, may in fact be talking between the caches.
+
+\subsubsection{Can all types be made atomic?}
+No, only those \textit{trivially copyable} (essentially a memcpy).
+
+\subsection{Operations on atomic types}
+\begin{itemize}
+    \item Assignments (reads and writes) on \verb|std::atomic<T> x;|:
+    \begin{itemize}
+        \item \verb|T y = x.load();  // Same as T y = x;|
+        \item \verb|x.store(y);  // Same as x = y;|
+    \end{itemize}
+    \item On \verb|std::atomic<int> x{42};|, there are most arithmetic operations
+    \begin{itemize}
+        \item CANNOT do atomic multiply: \verb|x*=2;|
+        \item \verb|x = x + 1;| is NOT the same as \verb|x+=1;|. The former is NOT atomic, because it consists of an atomic read followed by an atomic write on $x$; the latter is atomic.
+        \item There is \verb|fetch_add, fetch_sub|, ...
+    \end{itemize}
+    \item Increment and decrement for raw pointers.
+    \item NO atomic increment for atomic floating point numbers.
+    \item Atomic exchange: \verb|T z = x.exchange(y);  // Atomically : z = x; x = y;|
+    \item Compare-and-swap
+\end{itemize}
+
+\subsubsection{Is atomic the same as lock free?}
+No, padding and alignment matter. In fact, there is a member function \verb|is_lock_free|.
+\begin{itemize}
+    \item If in a given architecture only aligned memory accesses can be atomic, then misaligned objects cannot be lock-free.
+\end{itemize}
+
+\subsubsection{So, do atomic operations wait on each other?}
+Because a CPU performing an atomic operation on a memory address gets exclusive access to that address in main memory, and the lowest level of granularity of memory address space that can be trickled up and down the caches is a cache line, then atomic operations have to wait on each other if they are accessing the same cache line.
+
+\subsection{std::memory\_order}
+The observed order of memory access (a read or a write) may differ from the order specified by program order. The enums of \verb|std::memory_order| place constraints on which reorderings are NOT allowed.
+
+\begin{itemize}
+    \item \verb|std::memory_order_relaxed| places no constraints
+    \item \verb|std::memory_order_acquire|
+    \begin{itemize}
+        \item Suppose there is a program with the instruction $i$ given by \verb|x.load(std::memory_order_acquire)|. If a memory access happens after $i$ in program order, then it will also happen after $i$ in the observed order.
+        \item No memory access that happens after $i$ in program order can happen before $i$ in observed order.
+    \end{itemize}
+    \item \verb|std::memory_order_release|
+    \begin{itemize}
+        \item Suppose there is a program with instruction $i$ given by \verb|x.store(1, std::memory_order_release|. If a memory access happens before $i$ in program order, then it will also happen before $i$ in the observed order.
+        \item No memory access that happens before $i$ in program order can happen after $i$ in the observed order.
+    \end{itemize}
+\end{itemize}
+
+\subsection{Store-Release-Acquire-Load Protocol}
+\begin{itemize}
+    \item Thread 1 stores some data.
+    \item Thread 1 releases it by updating atomic variable $x$.
+    \item Thread 2 acquires $x$
+    \item Thread 2 can access the data.
+\end{itemize}
